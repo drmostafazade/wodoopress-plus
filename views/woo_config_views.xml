@@ -12,6 +12,11 @@
                                 type="object" 
                                 string="تست اتصال" 
                                 class="btn-primary"/>
+                        <button name="sync_all_products" 
+                                type="object" 
+                                string="همگام‌سازی محصولات" 
+                                class="btn-secondary"
+                                invisible="connection_status != 'connected'"/>
                         <field name="connection_status" 
                                widget="badge" 
                                decoration-success="connection_status == 'connected'"
@@ -41,7 +46,7 @@
             </field>
         </record>
 
-        <!-- List View (changed from tree) -->
+        <!-- List View -->
         <record id="view_woo_config_list" model="ir.ui.view">
             <field name="name">woo.config.list</field>
             <field name="model">woo.config</field>

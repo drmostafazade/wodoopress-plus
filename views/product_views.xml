@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Product Form View Extension -->
+        <record id="view_product_template_form_woo" model="ir.ui.view">
+            <field name="name">product.template.form.woo</field>
+            <field name="model">product.template</field>
+            <field name="inherit_id" ref="product.product_template_form_view"/>
+            <field name="arch" type="xml">
+                <xpath expr="//div[@name='button_box']" position="inside">
+                    <button class="oe_stat_button" 
+                            name="sync_to_woocommerce" 
+                            type="object"
+                            icon="fa-refresh"
+                            invisible="not woo_sync_enabled">
+                        <div class="o_field_widget o_stat_info">
+                            <span class="o_stat_text">همگام‌سازی</span>
+                            <span class="o_stat_text">WooCommerce</span>
+                        </div>
+                    </button>
+                </xpath>
+                
+                <xpath expr="//notebook" position="inside">
+                    <page string="WooCommerce" name="woocommerce">
+                        <group>
+                            <group string="تنظیمات همگام‌سازی">
+                                <field name="woo_sync_enabled"/>
+                                <field name="woo_status" invisible="not woo_sync_enabled"/>
+                            </group>
+                            <group string="اطلاعات همگام‌سازی">
+                                <field name="woo_id" readonly="1"/>
+                                <field name="woo_last_sync" readonly="1"/>
+                            </group>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+        
+        <!-- Product List View Extension -->
+        <record id="view_product_template_list_woo" model="ir.ui.view">
+            <field name="name">product.template.list.woo</field>
+            <field name="model">product.template</field>
+            <field name="inherit_id" ref="product.product_template_tree_view"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='default_code']" position="after">
+                    <field name="woo_id" optional="hide"/>
+                    <field name="woo_sync_enabled" optional="show" widget="boolean_toggle"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

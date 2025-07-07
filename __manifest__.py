@@ -34,6 +34,7 @@ WodooPress Plus - Professional WooCommerce Integration
     'data': [
         'security/ir.model.access.csv',
         'views/woo_config_views.xml',
+        'views/product_views.xml',
         'views/menu_views.xml',
     ],
     'demo': [],
