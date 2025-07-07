@@ -1,0 +1,103 @@
+# -*- coding: utf-8 -*-
+
+from odoo import models, fields, api, _
+from odoo.exceptions import ValidationError
+import requests
+import json
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
+class WooConfig(models.Model):
+    _name = 'woo.config'
+    _description = 'تنظیمات WooCommerce'
+    _rec_name = 'name'
+    _order = 'id desc'
+
+    name = fields.Char(
+        string='نام تنظیمات',
+        required=True,
+        default='تنظیمات اصلی'
+    )
+    
+    store_url = fields.Char(
+        string='آدرس فروشگاه',
+        required=True,
+        help='مثال: https://bsepar.com'
+    )
+    
+    consumer_key = fields.Char(
+        string='Consumer Key',
+        required=True,
+        help='از WooCommerce > Settings > Advanced > REST API'
+    )
+    
+    consumer_secret = fields.Char(
+        string='Consumer Secret',
+        required=True,
+        help='از WooCommerce > Settings > Advanced > REST API'
+    )
+    
+    active = fields.Boolean(
+        string='فعال',
+        default=True
+    )
+    
+    connection_status = fields.Selection([
+        ('not_tested', 'تست نشده'),
+        ('connected', 'متصل'),
+        ('error', 'خطا در اتصال')
+    ], string='وضعیت اتصال', default='not_tested', readonly=True)
+    
+    last_connection_test = fields.Datetime(
+        string='آخرین تست اتصال',
+        readonly=True
+    )
+
+    @api.constrains('store_url')
+    def _check_store_url(self):
+        for record in self:
+            if record.store_url and not record.store_url.startswith(('http://', 'https://')):
+                raise ValidationError('آدرس فروشگاه باید با http:// یا https:// شروع شود')
+
+    def test_connection(self):
+        """تست اتصال به WooCommerce"""
+        self.ensure_one()
+        
+        try:
+            # تست ساده با دریافت اطلاعات سیستم
+            url = f"{self.store_url.rstrip('/')}/wp-json/wc/v3/system_status"
+            
+            response = requests.get(
+                url,
+                auth=(self.consumer_key, self.consumer_secret),
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                self.write({
+                    'connection_status': 'connected',
+                    'last_connection_test': fields.Datetime.now()
+                })
+                
+                return {
+                    'type': 'ir.actions.client',
+                    'tag': 'display_notification',
+                    'params': {
+                        'title': 'اتصال موفق',
+                        'message': 'اتصال به WooCommerce با موفقیت برقرار شد!',
+                        'type': 'success',
+                        'sticky': False,
+                    }
+                }
+            else:
+                self.connection_status = 'error'
+                raise ValidationError(f'خطا در اتصال: کد {response.status_code}')
+                
+        except requests.exceptions.RequestException as e:
+            self.connection_status = 'error'
+            raise ValidationError(f'خطا در اتصال: {str(e)}')
+        except Exception as e:
+            self.connection_status = 'error'
+            raise ValidationError(f'خطای غیرمنتظره: {str(e)}')

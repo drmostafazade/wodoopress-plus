@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- منوی اصلی -->
+        <menuitem 
+            id="menu_wodoopress_root"
+            name="WodooPress Plus"
+            sequence="50"
+            web_icon="wodoopress_plus,static/description/icon.png"/>
+        
+        <!-- زیرمنوی تنظیمات -->
+        <menuitem 
+            id="menu_wodoopress_config"
+            name="تنظیمات"
+            parent="menu_wodoopress_root"
+            action="action_woo_config"
+            sequence="10"/>
+    </data>
+</odoo>
