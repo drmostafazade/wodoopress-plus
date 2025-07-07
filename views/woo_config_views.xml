@@ -41,6 +41,18 @@
                                 <field name="last_connection_test" readonly="1"/>
                             </group>
                         </group>
+                        <notebook>
+                            <page string="تنظیمات همگام‌سازی" name="sync_settings">
+                                <group>
+                                    <group string="محصولات">
+                                        <field name="sync_product_images"/>
+                                        <field name="sync_product_categories"/>
+                                        <field name="sync_product_tags"/>
+                                        <field name="sync_inventory_real_time"/>
+                                    </group>
+                                </group>
+                            </page>
+                        </notebook>
                     </sheet>
                 </form>
             </field>
@@ -86,31 +98,6 @@
                 <p>
                     برای شروع، اطلاعات اتصال WooCommerce خود را وارد کنید
                 </p>
-            </field>
-        </record>
-    </data>
-</odoo>
-
-        <!-- تنظیمات همگام‌سازی -->
-        <record id="view_woo_config_form_sync_settings" model="ir.ui.view">
-            <field name="name">woo.config.form.sync.settings</field>
-            <field name="model">woo.config</field>
-            <field name="inherit_id" ref="view_woo_config_form"/>
-            <field name="arch" type="xml">
-                <xpath expr="//sheet" position="inside">
-                    <notebook>
-                        <page string="تنظیمات همگام‌سازی" name="sync_settings">
-                            <group>
-                                <group string="محصولات">
-                                    <field name="sync_product_images"/>
-                                    <field name="sync_product_categories"/>
-                                    <field name="sync_product_tags"/>
-                                    <field name="sync_inventory_real_time"/>
-                                </group>
-                            </group>
-                        </page>
-                    </notebook>
-                </xpath>
             </field>
         </record>
     </data>
