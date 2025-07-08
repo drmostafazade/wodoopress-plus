@@ -2,3 +2,4 @@
 
 from . import woo_config
 from . import product_sync
+from . import product_brand
