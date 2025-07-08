@@ -41,8 +41,44 @@ class ProductTemplate(models.Model):
         help='اگر خالی باشد از description_sale استفاده می‌شود'
     )
     
+    @api.model
+    def create(self, vals):
+        """ایجاد محصول جدید با همگام‌سازی خودکار"""
+        product = super().create(vals)
+        
+        # اگر همگام‌سازی فعال است و محصول قابل فروش است
+        if product.woo_sync_enabled and product.sale_ok:
+            try:
+                product.sync_to_woocommerce()
+            except Exception as e:
+                _logger.error(f'Auto-sync failed for new product {product.name}: {str(e)}')
+        
+        return product
+    
+    def write(self, vals):
+        """بروزرسانی محصول با همگام‌سازی خودکار"""
+        # فیلدهایی که باید همگام‌سازی را trigger کنند
+        sync_fields = [
+            'name', 'list_price', 'standard_price', 'description', 
+            'description_sale', 'default_code', 'weight', 'active',
+            'qty_available', 'image_1920', 'categ_id'
+        ]
+        
+        result = super().write(vals)
+        
+        # بررسی نیاز به همگام‌سازی
+        if any(field in vals for field in sync_fields):
+            for product in self:
+                if product.woo_sync_enabled and product.sale_ok and product.woo_id:
+                    try:
+                        product.sync_to_woocommerce()
+                    except Exception as e:
+                        _logger.error(f'Auto-sync failed for {product.name}: {str(e)}')
+        
+        return result
+    
     def sync_to_woocommerce(self):
-        """همگام‌سازی محصول با WooCommerce - خواندن داده از Odoo"""
+        """همگام‌سازی محصول با WooCommerce - با مدیریت بهتر خطاها"""
         self.ensure_one()
         
         # دریافت تنظیمات فعال
@@ -59,14 +95,35 @@ class ProductTemplate(models.Model):
         
         try:
             if self.woo_id:
-                # بروزرسانی محصول موجود
-                url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products/{self.woo_id}"
-                response = requests.put(
-                    url,
+                # ابتدا بررسی کنیم محصول در WooCommerce وجود دارد
+                check_url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products/{self.woo_id}"
+                check_response = requests.get(
+                    check_url,
                     auth=(config.consumer_key, config.consumer_secret),
-                    json=product_data,
-                    timeout=30
+                    timeout=10
                 )
+                
+                if check_response.status_code == 404:
+                    # محصول در WooCommerce حذف شده، ID را پاک می‌کنیم
+                    self.woo_id = False
+                    _logger.warning(f'Product {self.name} was deleted from WooCommerce, creating new one')
+                    
+                    # ایجاد محصول جدید
+                    create_url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products"
+                    response = requests.post(
+                        create_url,
+                        auth=(config.consumer_key, config.consumer_secret),
+                        json=product_data,
+                        timeout=30
+                    )
+                else:
+                    # بروزرسانی محصول موجود
+                    response = requests.put(
+                        check_url,
+                        auth=(config.consumer_key, config.consumer_secret),
+                        json=product_data,
+                        timeout=30
+                    )
             else:
                 # ایجاد محصول جدید
                 url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products"
@@ -84,9 +141,12 @@ class ProductTemplate(models.Model):
                     'woo_last_sync': fields.Datetime.now()
                 })
                 
-                # همگام‌سازی تصاویر اگر وجود دارد
-                if self.image_1920:
+                # همگام‌سازی موارد اضافی
+                if config.sync_product_images and self.image_1920:
                     self._sync_product_images(result.get('id'), config)
+                
+                if config.sync_product_categories and self.categ_id:
+                    self._sync_product_categories(result.get('id'), config)
                 
                 return {
                     'type': 'ir.actions.client',
@@ -98,7 +158,11 @@ class ProductTemplate(models.Model):
                     }
                 }
             else:
-                raise UserError(f'خطا در همگام‌سازی: {response.status_code}\n{response.text}')
+                error_data = response.json() if response.content else {}
+                raise UserError(
+                    f'خطا در همگام‌سازی: {response.status_code}\n'
+                    f'{error_data.get("message", response.text)}'
+                )
                 
         except requests.exceptions.RequestException as e:
             raise UserError(f'خطا در ارتباط: {str(e)}')
@@ -112,7 +176,7 @@ class ProductTemplate(models.Model):
             'name': self.name,
             'type': 'simple',
             'regular_price': str(self.list_price),
-            'sale_price': str(self.standard_price) if self.standard_price else '',
+            'sale_price': '',  # فعلاً خالی
             'description': self.description or '',
             'short_description': self.woo_short_description or self.description_sale or '',
             'sku': self.default_code or f'ODOO-{self.id}',
@@ -126,27 +190,17 @@ class ProductTemplate(models.Model):
             'backorders': 'no',
         }
         
-        # دسته‌بندی‌ها
-        if self.categ_id:
-            # بعداً پیاده‌سازی می‌شود
-            pass
-        
-        # ابعاد محصول
-        if hasattr(self, 'product_length'):
+        # ابعاد محصول اگر موجود باشد
+        if hasattr(self, 'product_length') and self.product_length:
             data['dimensions'] = {
-                'length': str(self.product_length or ''),
+                'length': str(self.product_length),
                 'width': str(self.product_width or ''),
                 'height': str(self.product_height or ''),
             }
         
-        # GTIN/EAN/ISBN
+        # GTIN/EAN/ISBN از بارکد
         if self.barcode:
-            data['attributes'] = [{
-                'name': 'GTIN/EAN',
-                'options': [self.barcode],
-                'visible': True,
-                'variation': False,
-            }]
+            data['sku'] = self.barcode  # استفاده از بارکد به عنوان SKU
         
         return data
     
@@ -156,28 +210,114 @@ class ProductTemplate(models.Model):
             return
         
         try:
-            # تبدیل تصویر به base64
-            image_data = {
-                'images': [{
-                    'src': f"data:image/png;base64,{self.image_1920.decode('utf-8')}",
-                    'name': f"{self.name} - تصویر اصلی",
-                    'alt': self.name,
-                }]
+            # آپلود تصویر به WordPress Media Library
+            media_url = f"{config.store_url.rstrip('/')}/wp-json/wp/v2/media"
+            
+            # آماده‌سازی فایل
+            image_data = base64.b64decode(self.image_1920)
+            files = {
+                'file': (f'{self.name}.jpg', image_data, 'image/jpeg')
             }
             
-            url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products/{woo_product_id}"
-            response = requests.put(
-                url,
+            # آپلود تصویر
+            media_response = requests.post(
+                media_url,
                 auth=(config.consumer_key, config.consumer_secret),
-                json=image_data,
+                files=files,
                 timeout=60
             )
             
-            if response.status_code not in [200, 201]:
-                _logger.error(f"Error syncing image: {response.text}")
+            if media_response.status_code == 201:
+                media_data = media_response.json()
+                image_id = media_data.get('id')
+                
+                # اتصال تصویر به محصول
+                product_data = {
+                    'images': [{
+                        'id': image_id
+                    }]
+                }
+                
+                url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products/{woo_product_id}"
+                response = requests.put(
+                    url,
+                    auth=(config.consumer_key, config.consumer_secret),
+                    json=product_data,
+                    timeout=30
+                )
+                
+                if response.status_code not in [200, 201]:
+                    _logger.error(f"Error attaching image: {response.text}")
+            else:
+                _logger.error(f"Error uploading image: {media_response.text}")
                 
         except Exception as e:
             _logger.error(f"Error syncing product image: {str(e)}")
+    
+    def _sync_product_categories(self, woo_product_id, config):
+        """همگام‌سازی دسته‌بندی محصول"""
+        if not self.categ_id:
+            return
+        
+        try:
+            # ابتدا بررسی/ایجاد دسته‌بندی در WooCommerce
+            category_name = self.categ_id.name
+            
+            # جستجوی دسته‌بندی
+            search_url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products/categories"
+            search_params = {'search': category_name}
+            
+            search_response = requests.get(
+                search_url,
+                auth=(config.consumer_key, config.consumer_secret),
+                params=search_params,
+                timeout=10
+            )
+            
+            if search_response.status_code == 200:
+                categories = search_response.json()
+                
+                if categories:
+                    # استفاده از دسته‌بندی موجود
+                    category_id = categories[0]['id']
+                else:
+                    # ایجاد دسته‌بندی جدید
+                    category_data = {
+                        'name': category_name,
+                        'slug': category_name.lower().replace(' ', '-')
+                    }
+                    
+                    create_response = requests.post(
+                        search_url,
+                        auth=(config.consumer_key, config.consumer_secret),
+                        json=category_data,
+                        timeout=30
+                    )
+                    
+                    if create_response.status_code == 201:
+                        category_id = create_response.json()['id']
+                    else:
+                        _logger.error(f"Error creating category: {create_response.text}")
+                        return
+                
+                # اتصال دسته‌بندی به محصول
+                product_data = {
+                    'categories': [{'id': category_id}]
+                }
+                
+                url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products/{woo_product_id}"
+                response = requests.put(
+                    url,
+                    auth=(config.consumer_key, config.consumer_secret),
+                    json=product_data,
+                    timeout=30
+                )
+                
+                if response.status_code not in [200, 201]:
+                    _logger.error(f"Error updating product categories: {response.text}")
+                    
+        except Exception as e:
+            _logger.error(f"Error syncing product categories: {str(e)}")
 
 
 class WooConfig(models.Model):
@@ -188,6 +328,7 @@ class WooConfig(models.Model):
     sync_product_categories = fields.Boolean('همگام‌سازی دسته‌بندی‌ها', default=True)
     sync_product_tags = fields.Boolean('همگام‌سازی برچسب‌ها', default=True)
     sync_inventory_real_time = fields.Boolean('همگام‌سازی لحظه‌ای موجودی', default=True)
+    auto_sync_on_change = fields.Boolean('همگام‌سازی خودکار هنگام تغییرات', default=True)
     
     def sync_all_products(self):
         """همگام‌سازی همه محصولات فعال"""
@@ -199,8 +340,8 @@ class WooConfig(models.Model):
         # محصولات قابل فروش
         products = self.env['product.template'].search([
             ('sale_ok', '=', True),
-            ('type', 'in', ['product', 'consu'])  # فقط محصولات فیزیکی و مصرفی
-        ], limit=5)  # محدود به 5 محصول برای تست
+            ('type', 'in', ['product', 'consu'])
+        ], limit=10)  # افزایش به 10 محصول
         
         if not products:
             raise UserError('محصولی برای همگام‌سازی یافت نشد!')
@@ -223,9 +364,9 @@ class WooConfig(models.Model):
                 errors.append(error_msg)
                 _logger.error(error_msg)
         
-        message = f'موفق: {success_count} محصول\nخطا: {error_count} محصول'
+        message = f'✅ موفق: {success_count} محصول\n❌ خطا: {error_count} محصول'
         if errors:
-            message += '\n\nجزئیات خطاها:\n' + '\n'.join(errors[:3])
+            message += '\n\n📋 جزئیات خطاها:\n' + '\n'.join(errors[:5])
         
         return {
             'type': 'ir.actions.client',
