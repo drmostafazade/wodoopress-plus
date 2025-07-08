@@ -323,7 +323,61 @@ class ProductTemplate(models.Model):
         if attributes:
             data['attributes'] = attributes
         
-        # Meta data اضافی
+        
+        # ===== همگام‌سازی کامل فیلدهای جدید =====
+        
+        # برند محصول
+        if self.woo_brand_id and self.woo_brand_id.name:
+            # برند را به عنوان attribute ارسال می‌کنیم
+            if 'attributes' not in data:
+                data['attributes'] = []
+            
+            # بررسی که آیا برند قبلاً اضافه نشده
+            brand_exists = False
+            for attr in data['attributes']:
+                if attr.get('name') == 'برند':
+                    attr['options'] = [self.woo_brand_id.name]
+                    brand_exists = True
+                    break
+            
+            if not brand_exists:
+                data['attributes'].insert(0, {
+                    'id': 0,
+                    'name': 'برند',
+                    'position': 0,
+                    'visible': True,
+                    'variation': False,
+                    'options': [self.woo_brand_id.name]
+                })
+        
+        # آستانه کم‌بودن موجودی
+        if self.reordering_min_qty:
+            data['low_stock_amount'] = int(self.reordering_min_qty)
+        
+        # تنظیمات موجودی
+        data['manage_stock'] = self.woo_manage_stock
+        data['backorders'] = self.woo_backorders
+        
+        # محصولات پیوند شده - باید woo_id داشته باشند
+        if hasattr(self, 'accessory_product_ids') and self.accessory_product_ids:
+            cross_sell_ids = []
+            for related in self.accessory_product_ids:
+                if related.woo_id:
+                    cross_sell_ids.append(related.woo_id)
+            if cross_sell_ids:
+                data['cross_sell_ids'] = cross_sell_ids
+        
+        # محصولات جایگزین/مکمل
+        if hasattr(self, 'alternative_product_ids') and self.alternative_product_ids:
+            upsell_ids = []
+            for alt in self.alternative_product_ids:
+                if alt.woo_id:
+                    upsell_ids.append(alt.woo_id)
+            if upsell_ids:
+                data['upsell_ids'] = upsell_ids
+
+
+# Meta data اضافی
         meta_data = []
         
         # یادداشت خرید
