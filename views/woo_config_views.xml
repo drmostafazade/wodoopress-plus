@@ -13,6 +13,12 @@
                                 string="تست اتصال" 
                                 class="btn-primary"/>
                         <button name="sync_all_products" 
+                        <button name="reset_all_woo_ids" 
+                                type="object" 
+                                string="ریست همه ID ها" 
+                                class="btn-danger"
+                                confirm="آیا مطمئن هستید؟ این عمل همه WooCommerce ID ها را پاک می‌کند"
+                                invisible="connection_status != 'connected'"/>
                                 type="object" 
                                 string="همگام‌سازی محصولات" 
                                 class="btn-secondary"
