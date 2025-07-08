@@ -657,8 +657,3 @@ class StockQuant(models.Model):
                 except Exception as e:
                     _logger.error(f"Auto stock sync failed: {str(e)}")
 
-    # فیلد برای ذخیره آستانه موجودی
-    reordering_min_qty = fields.Float(
-        string='آستانه کم‌بودن موجودی',
-        help='هشدار زمانی که موجودی به این مقدار برسد'
-    )

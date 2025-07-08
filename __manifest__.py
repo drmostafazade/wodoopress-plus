@@ -36,7 +36,6 @@ WodooPress Plus - Professional WooCommerce Integration
         'views/woo_config_views.xml',
         'views/product_views.xml',
         'views/menu_views.xml',
-            'data/webhook_instructions.xml',
     ],
     'demo': [],
     'installable': True,
