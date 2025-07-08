@@ -240,9 +240,22 @@ class ProductTemplate(models.Model):
         if dimensions:
             data['dimensions'] = dimensions
         
-        # تصاویر
+        # ===== فیلدهای جدید =====
+        
+        # آستانه کم‌بودن موجودی
+        if hasattr(self, 'reordering_min_qty') and self.reordering_min_qty:
+            data['low_stock_amount'] = int(self.reordering_min_qty)
+        
+        # تصاویر (اصلی + گالری)
         if image_ids:
-            data['images'] = [{'id': img_id} for img_id in image_ids]
+            data['images'] = []
+            for idx, img_id in enumerate(image_ids):
+                img_data = {'id': img_id}
+                if idx == 0:  # تصویر اصلی
+                    img_data['position'] = 0
+                    img_data['name'] = f"{self.name} - تصویر اصلی"
+                    img_data['alt'] = self.name
+                data['images'].append(img_data)
         
         # دسته‌بندی‌ها
         if category_ids:
@@ -252,59 +265,99 @@ class ProductTemplate(models.Model):
         if tag_ids:
             data['tags'] = [{'id': tag_id} for tag_id in tag_ids]
         
+        # محصولات پیوند شده (مرتبط)
+        if hasattr(self, 'accessory_product_ids') and self.accessory_product_ids:
+            # ابتدا باید SKU محصولات مرتبط را پیدا کنیم
+            related_products = []
+            for related in self.accessory_product_ids:
+                if related.woo_id:
+                    related_products.append(related.woo_id)
+            if related_products:
+                data['cross_sell_ids'] = related_products
+        
+        # محصولات جایگزین
+        if hasattr(self, 'alternative_product_ids') and self.alternative_product_ids:
+            upsell_products = []
+            for alt in self.alternative_product_ids:
+                if alt.woo_id:
+                    upsell_products.append(alt.woo_id)
+            if upsell_products:
+                data['upsell_ids'] = upsell_products
+        
         # ویژگی‌های محصول (attributes)
         attributes = []
         
-        # برند به عنوان attribute
+        # برند به عنوان attribute اصلی
         if self.woo_brand_id:
             attributes.append({
+                'id': 0,  # WooCommerce will create new
                 'name': 'برند',
-                'options': [self.woo_brand_id.name],
+                'position': 0,
                 'visible': True,
                 'variation': False,
+                'options': [self.woo_brand_id.name]
             })
         
         # بارکد/GTIN
         if self.barcode:
             attributes.append({
+                'id': 0,
                 'name': 'GTIN/EAN',
-                'options': [self.barcode],
+                'position': 1,
                 'visible': True,
                 'variation': False,
+                'options': [self.barcode]
             })
         
         # کشور مبدا
         if hasattr(self, 'country_of_origin_id') and self.country_of_origin_id:
             attributes.append({
+                'id': 0,
                 'name': 'کشور مبدا',
-                'options': [self.country_of_origin_id.name],
+                'position': 2,
                 'visible': True,
                 'variation': False,
+                'options': [self.country_of_origin_id.name]
             })
         
         if attributes:
             data['attributes'] = attributes
         
-        # محصولات مرتبط
-        if hasattr(self, 'accessory_product_ids') and self.accessory_product_ids:
-            related_skus = [p.default_code for p in self.accessory_product_ids if p.default_code]
-            if related_skus:
-                # بعداً پیاده‌سازی می‌شود
-                pass
-        
-        # یادداشت خرید به عنوان meta data
+        # Meta data اضافی
         meta_data = []
+        
+        # یادداشت خرید
         if self.description_purchase:
             meta_data.append({
                 'key': '_purchase_note',
                 'value': self.description_purchase
             })
         
+        # کد HS
         if hasattr(self, 'hs_code') and self.hs_code:
             meta_data.append({
                 'key': '_hs_code',
                 'value': self.hs_code
             })
+        
+        # مرجع داخلی
+        if self.default_code:
+            meta_data.append({
+                'key': '_odoo_internal_ref',
+                'value': self.default_code
+            })
+        
+        # نشانگر منبع داده
+        meta_data.append({
+            'key': '_managed_by_odoo',
+            'value': 'true'
+        })
+        
+        # تاریخ آخرین همگام‌سازی
+        meta_data.append({
+            'key': '_last_sync_from_odoo',
+            'value': fields.Datetime.now().isoformat()
+        })
         
         if meta_data:
             data['meta_data'] = meta_data
@@ -603,3 +656,9 @@ class StockQuant(models.Model):
                     )
                 except Exception as e:
                     _logger.error(f"Auto stock sync failed: {str(e)}")
+
+    # فیلد برای ذخیره آستانه موجودی
+    reordering_min_qty = fields.Float(
+        string='آستانه کم‌بودن موجودی',
+        help='هشدار زمانی که موجودی به این مقدار برسد'
+    )

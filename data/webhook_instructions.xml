@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="webhook_instructions" model="ir.ui.view">
+            <field name="name">webhook.instructions</field>
+            <field name="model">woo.config</field>
+            <field name="inherit_id" ref="view_woo_config_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//group[@string='تنظیمات همگام‌سازی']" position="after">
+                    <separator string="تنظیمات Webhook" colspan="2"/>
+                    <group>
+                        <field name="webhook_secret" placeholder="یک رشته تصادفی امن وارد کنید"/>
+                        <div colspan="2" class="alert alert-info">
+                            <strong>راهنمای تنظیم Webhook در WooCommerce:</strong>
+                            <ol>
+                                <li>به WooCommerce > Settings > Advanced > Webhooks بروید</li>
+                                <li>یک Webhook جدید ایجاد کنید</li>
+                                <li>Topic: Product created/updated</li>
+                                <li>Delivery URL: https://erp.bsepar.com/woocommerce/webhook/product</li>
+                                <li>Secret: همان مقدار فیلد بالا</li>
+                                <li>Status: Active</li>
+                            </ol>
+                        </div>
+                    </group>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

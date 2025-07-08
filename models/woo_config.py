@@ -34,6 +34,11 @@ class WooConfig(models.Model):
     )
     
     consumer_secret = fields.Char(
+    
+    webhook_secret = fields.Char(
+        string='Webhook Secret',
+        help='برای امنیت webhook ها استفاده می‌شود'
+    )
         string='Consumer Secret',
         required=True,
         help='از WooCommerce > Settings > Advanced > REST API'
