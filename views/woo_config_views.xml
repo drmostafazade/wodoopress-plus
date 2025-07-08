@@ -25,12 +25,6 @@
                                 <field name="consumer_secret" password="True"/>
                             </group>
                             <group string="وضعیت">
-                        </group>
-                        <group string="تنظیمات همگام‌سازی">
-                            <field name="sync_product_images"/>
-                            <field name="sync_product_categories"/>
-                            <field name="sync_product_tags"/>
-                            <field name="sync_inventory_real_time"/>
                                 <field name="active"/>
                                 <field name="last_connection_test" readonly="1"/>
                             </group>
@@ -41,7 +35,6 @@
                             <field name="sync_product_categories"/>
                             <field name="sync_product_tags"/>
                             <field name="sync_inventory_real_time"/>
-                            </group>
                         </group>
                     </sheet>
                 </form>
