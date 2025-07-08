@@ -34,14 +34,14 @@ class WooConfig(models.Model):
     )
     
     consumer_secret = fields.Char(
+        string='Consumer Secret',
+        required=True,
+        help='از WooCommerce > Settings > Advanced > REST API'
+    )
     
     webhook_secret = fields.Char(
         string='Webhook Secret',
         help='برای امنیت webhook ها استفاده می‌شود'
-    )
-        string='Consumer Secret',
-        required=True,
-        help='از WooCommerce > Settings > Advanced > REST API'
     )
     
     active = fields.Boolean(
@@ -124,7 +124,7 @@ class WooConfig(models.Model):
         products = self.env['product.template'].search([
             ('sale_ok', '=', True),
             ('type', 'in', ['product', 'consu'])
-        ], limit=10)  # برای تست با 10 محصول شروع می‌کنیم
+        ], limit=10)
         
         if not products:
             raise ValidationError('محصولی برای همگام‌سازی یافت نشد!')
