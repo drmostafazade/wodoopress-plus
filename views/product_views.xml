@@ -26,6 +26,8 @@
                             <group string="تنظیمات همگام‌سازی">
                                 <field name="woo_sync_enabled"/>
                                 <field name="woo_status" invisible="not woo_sync_enabled"/>
+                                <field name="woo_short_description" placeholder="توضیحات کوتاه برای WooCommerce"/>
+                                <field name="woo_brand_id"/>
                             </group>
                             <group string="اطلاعات همگام‌سازی">
                                 <field name="woo_id" readonly="1"/>

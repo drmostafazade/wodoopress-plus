@@ -24,3 +24,9 @@
 - Simple product sync
 - Product webhook receiver
 - Basic field mapping
+
+## 2025-01-08 Update
+- Fixed missing methods in woo_config.py
+- Added sync settings fields
+- Resolved duplicate class definitions
+- Added product brand support
