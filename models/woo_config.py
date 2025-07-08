@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
+
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
 import requests
 import json
 import logging
+
 _logger = logging.getLogger(__name__)
+
+
 class WooConfig(models.Model):
     _name = 'woo.config'
     _description = 'تنظیمات WooCommerce'
     _rec_name = 'name'
     _order = 'id desc'
+
     name = fields.Char(
         string='نام تنظیمات',
         required=True,
@@ -49,11 +54,19 @@ class WooConfig(models.Model):
         string='آخرین تست اتصال',
         readonly=True
     )
+    
+    # فیلدهای تنظیمات همگام‌سازی
+    sync_product_images = fields.Boolean('همگام‌سازی تصاویر', default=True)
+    sync_product_categories = fields.Boolean('همگام‌سازی دسته‌بندی‌ها', default=True)
+    sync_product_tags = fields.Boolean('همگام‌سازی برچسب‌ها', default=True)
+    sync_inventory_real_time = fields.Boolean('همگام‌سازی Real-time موجودی', default=True)
+
     @api.constrains('store_url')
     def _check_store_url(self):
         for record in self:
             if record.store_url and not record.store_url.startswith(('http://', 'https://')):
                 raise ValidationError('آدرس فروشگاه باید با http:// یا https:// شروع شود')
+
     def test_connection(self):
         """تست اتصال به WooCommerce"""
         self.ensure_one()
@@ -94,150 +107,6 @@ class WooConfig(models.Model):
         except Exception as e:
             self.connection_status = 'error'
             raise ValidationError(f'خطای غیرمنتظره: {str(e)}')
-    def sync_all_products(self):
-        """همگام‌سازی همه محصولات"""
-        self.ensure_one()
-        
-        if self.connection_status != 'connected':
-            raise ValidationError('ابتدا اتصال را تست کنید!')
-        
-        # فراخوانی متد از product_sync
-        return self.env['product.template'].sync_all_products_to_woo()
-    
-    def reset_all_woo_ids(self):
-        """ریست کردن همه ID های WooCommerce"""
-        self.ensure_one()
-        
-        products = self.env['product.template'].search([('woo_id', '!=', False)])
-        products.write({
-            'woo_id': False,
-            'woo_sync_enabled': False,
-            'woo_last_sync': False
-        })
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'ریست انجام شد',
-                'message': f'{len(products)} محصول ریست شدند',
-                'type': 'success',
-            }
-        }
-    # فیلدهای تنظیمات همگام‌سازی
-    sync_product_images = fields.Boolean('همگام‌سازی تصاویر', default=True)
-    sync_product_categories = fields.Boolean('همگام‌سازی دسته‌بندی‌ها', default=True)
-    sync_product_tags = fields.Boolean('همگام‌سازی برچسب‌ها', default=True)
-    sync_inventory_real_time = fields.Boolean('همگام‌سازی Real-time موجودی', default=True)
-    def sync_all_products(self):
-        """همگام‌سازی همه محصولات فعال"""
-        self.ensure_one()
-        
-        if self.connection_status != 'connected':
-            raise ValidationError('ابتدا اتصال را تست کنید!')
-        
-        # محصولات قابل فروش
-        products = self.env['product.template'].search([
-            ('sale_ok', '=', True),
-            ('type', 'in', ['product', 'consu'])
-        ], limit=10)
-        
-        if not products:
-            raise ValidationError('محصولی برای همگام‌سازی یافت نشد!')
-        
-        # فعال کردن sync برای این محصولات
-        products.write({'woo_sync_enabled': True})
-        
-        success_count = 0
-        error_count = 0
-        errors = []
-        
-        for product in products:
-            try:
-                product.sync_to_woocommerce()
-                success_count += 1
-                _logger.info(f'Successfully synced: {product.name}')
-            except Exception as e:
-                error_count += 1
-                error_msg = f'{product.name}: {str(e)}'
-                errors.append(error_msg)
-                _logger.error(error_msg)
-        
-        message = f'نتیجه همگام‌سازی:\n'
-        message += f'✅ موفق: {success_count} محصول\n'
-        message += f'❌ خطا: {error_count} محصول'
-        
-        if errors:
-            message += '\n\nخطاها:\n' + '\n'.join(errors[:5])
-            if len(errors) > 5:
-                message += f'\n... و {len(errors) - 5} خطای دیگر'
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'همگام‌سازی کامل',
-                'message': message,
-                'type': 'success' if error_count == 0 else 'warning',
-                'sticky': True,
-            }
-        }
-    
-    def reset_all_woo_ids(self):
-        """ریست کردن همه ID های WooCommerce"""
-        self.ensure_one()
-        
-        products = self.env['product.template'].search([
-            '|',
-            ('woo_id', '!=', False),
-            ('woo_sync_enabled', '=', True)
-        ])
-        
-        count = len(products)
-        
-        products.write({
-            'woo_id': False,
-            'woo_sync_enabled': False,
-            'woo_last_sync': False
-        })
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'ریست انجام شد',
-                'message': f'{count} محصول ریست شدند',
-                'type': 'success',
-            }
-        }
-    
-    # فیلدهای تنظیمات همگام‌سازی
-    sync_product_images = fields.Boolean(
-        string='همگام‌سازی تصاویر',
-        default=True,
-        help='همگام‌سازی تصاویر محصولات با WordPress Media Library'
-    )
-    sync_product_categories = fields.Boolean(
-        string='همگام‌سازی دسته‌بندی‌ها',
-        default=True,
-        help='ایجاد خودکار دسته‌بندی‌ها در WooCommerce'
-    )
-    sync_product_tags = fields.Boolean(
-        string='همگام‌سازی برچسب‌ها',
-        default=True,
-        help='همگام‌سازی برچسب‌های محصولات'
-    )
-    sync_inventory_real_time = fields.Boolean(
-        string='همگام‌سازی Real-time موجودی',
-        default=True,
-        help='بروزرسانی خودکار موجودی هنگام تغییرات'
-    )
-
-    # فیلدهای تنظیمات همگام‌سازی
-    sync_product_images = fields.Boolean('همگام‌سازی تصاویر', default=True)
-    sync_product_categories = fields.Boolean('همگام‌سازی دسته‌بندی‌ها', default=True)
-    sync_product_tags = fields.Boolean('همگام‌سازی برچسب‌ها', default=True)
-    sync_inventory_real_time = fields.Boolean('همگام‌سازی Real-time موجودی', default=True)
 
     def sync_all_products(self):
         """همگام‌سازی کامل همه محصولات فعال"""

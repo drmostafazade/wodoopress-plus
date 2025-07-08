@@ -35,6 +35,14 @@
                                 <field name="last_connection_test" readonly="1"/>
                             </group>
                         </group>
+                        <separator string="تنظیمات همگام‌سازی" colspan="2"/>
+                        <group col="4">
+                            <field name="sync_product_images"/>
+                            <field name="sync_product_categories"/>
+                            <field name="sync_product_tags"/>
+                            <field name="sync_inventory_real_time"/>
+                            </group>
+                        </group>
                     </sheet>
                 </form>
             </field>
