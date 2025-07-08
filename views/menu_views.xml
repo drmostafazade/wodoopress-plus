@@ -17,3 +17,13 @@
             sequence="10"/>
     </data>
 </odoo>
+        
+        <!-- زیرمنوی برندها -->
+        <menuitem 
+            id="menu_product_brand"
+            name="برندها"
+            parent="menu_wodoopress_root"
+            action="action_product_brand"
+            sequence="20"/>
+    </data>
+</odoo>
