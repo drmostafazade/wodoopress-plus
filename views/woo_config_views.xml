@@ -8,62 +8,32 @@
             <field name="arch" type="xml">
                 <form string="تنظیمات WooCommerce">
                     <header>
-                        <button name="test_connection" 
-                                type="object" 
-                                string="تست اتصال" 
-                                class="btn-primary"/>
-                        <button name="sync_all_products" 
-                        <button name="reset_all_woo_ids" 
-                                type="object" 
-                                string="ریست همه ID ها" 
-                                class="btn-danger"
-                                confirm="آیا مطمئن هستید؟ این عمل همه WooCommerce ID ها را پاک می‌کند"
-                                invisible="connection_status != 'connected'"/>
-                                type="object" 
-                                string="همگام‌سازی محصولات" 
-                                class="btn-secondary"
-                                invisible="connection_status != 'connected'"/>
-                        <field name="connection_status" 
-                               widget="badge" 
-                               decoration-success="connection_status == 'connected'"
-                               decoration-danger="connection_status == 'error'"
-                               decoration-muted="connection_status == 'not_tested'"/>
+                        <button name="test_connection" type="object" string="تست اتصال" class="btn-primary"/>
+                        <button name="sync_all_products" type="object" string="همگام‌سازی محصولات" class="btn-secondary" invisible="connection_status != 'connected'"/>
+                        <button name="reset_all_woo_ids" type="object" string="ریست همه ID ها" class="btn-danger" invisible="connection_status != 'connected'" confirm="آیا مطمئن هستید؟"/>
+                        <field name="connection_status" widget="badge"/>
                     </header>
                     <sheet>
                         <div class="oe_title">
                             <label for="name"/>
-                            <h1>
-                                <field name="name" placeholder="نام تنظیمات"/>
-                            </h1>
+                            <h1><field name="name"/></h1>
                         </div>
                         <group>
                             <group string="اطلاعات اتصال">
-                                <field name="store_url" placeholder="https://example.com"/>
-                                <field name="consumer_key" placeholder="ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"/>
-                                <field name="consumer_secret" password="True" placeholder="cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"/>
+                                <field name="store_url"/>
+                                <field name="consumer_key"/>
+                                <field name="consumer_secret" password="True"/>
                             </group>
                             <group string="وضعیت">
                                 <field name="active"/>
                                 <field name="last_connection_test" readonly="1"/>
                             </group>
                         </group>
-                        <notebook>
-                            <page string="تنظیمات همگام‌سازی" name="sync_settings">
-                                <group>
-                                    <group string="محصولات">
-                                        <field name="sync_product_images"/>
-                                        <field name="sync_product_categories"/>
-                                        <field name="sync_product_tags"/>
-                                        <field name="sync_inventory_real_time"/>
-                                    </group>
-                                </group>
-                            </page>
-                        </notebook>
                     </sheet>
                 </form>
             </field>
         </record>
-
+        
         <!-- List View -->
         <record id="view_woo_config_list" model="ir.ui.view">
             <field name="name">woo.config.list</field>
@@ -77,34 +47,12 @@
                 </list>
             </field>
         </record>
-
-        <!-- Search View -->
-        <record id="view_woo_config_search" model="ir.ui.view">
-            <field name="name">woo.config.search</field>
-            <field name="model">woo.config</field>
-            <field name="arch" type="xml">
-                <search>
-                    <field name="name"/>
-                    <field name="store_url"/>
-                    <filter name="active" string="فعال" domain="[('active', '=', True)]"/>
-                    <filter name="connected" string="متصل" domain="[('connection_status', '=', 'connected')]"/>
-                </search>
-            </field>
-        </record>
-
+        
         <!-- Action -->
         <record id="action_woo_config" model="ir.actions.act_window">
             <field name="name">تنظیمات WooCommerce</field>
             <field name="res_model">woo.config</field>
             <field name="view_mode">list,form</field>
-            <field name="help" type="html">
-                <p class="o_view_nocontent_smiling_face">
-                    تنظیمات جدید ایجاد کنید
-                </p>
-                <p>
-                    برای شروع، اطلاعات اتصال WooCommerce خود را وارد کنید
-                </p>
-            </field>
         </record>
     </data>
 </odoo>
