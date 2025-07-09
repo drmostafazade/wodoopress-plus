@@ -70,7 +70,6 @@ class ProductTemplate(models.Model):
         ('hidden', 'مخفی')
     ], string='نمایش در کاتالوگ', default='visible')
     
-    @api.model
     def create(self, vals):
         """ایجاد محصول جدید با همگام‌سازی خودکار"""
         product = super().create(vals)
