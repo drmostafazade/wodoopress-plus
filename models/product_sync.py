@@ -591,103 +591,41 @@ class ProductCategory(models.Model):
     woo_category_id = fields.Integer('شناسه دسته‌بندی WooCommerce', readonly=True)
 
 
+
+
 class StockQuant(models.Model):
-    _inherit = 'stock.quant'
-    
-    @api.model
-    def create(self, vals):
-        """همگام‌سازی خودکار موجودی"""
-        quant = super().create(vals)
-        self._sync_product_stock(quant)
-        return quant
-    
-    def write(self, vals):
-        """همگام‌سازی خودکار موجودی"""
-        result = super().write(vals)
-        for quant in self:
-            self._sync_product_stock(quant)
-        return result
-    
-    def _sync_product_stock(self, quant):
-        """همگام‌سازی موجودی با WooCommerce"""
-        if (quant.location_id.usage == 'internal' and 
-            quant.product_id.product_tmpl_id.woo_sync_enabled and
-            quant.product_id.product_tmpl_id.woo_id):
-            
-            config = self.env['woo.config'].search([
-                ('active', '=', True),
-                ('sync_inventory_real_time', '=', True)
-            ], limit=1)
-            
-            if config:
-                try:
-                    url = f"{config.store_url.rstrip('/')}/wp-json/wc/v3/products/{quant.product_id.product_tmpl_id.woo_id}"
-                    
-                    stock_data = {
-                        'stock_quantity': int(quant.product_id.product_tmpl_id.qty_available),
-                        'stock_status': 'instock' if quant.product_id.product_tmpl_id.qty_available > 0 else 'outofstock'
-                    }
-                    
-                    response = requests.put(
-                        url,
-                        auth=(config.consumer_key, config.consumer_secret),
-                        json=stock_data,
-                        timeout=10
-                    )
-                    
-                    if response.status_code in [200, 201]:
-                        _logger.info(f"موجودی {quant.product_id.name} همگام‌سازی شد")
-                    
-                except Exception as e:
-                    _logger.error(f"خطا در همگام‌سازی موجودی: {str(e)}")
-
-
-class WooConfig(models.Model):
-    _inherit = 'woo.config'
-    
-    def sync_all_products(self):
-        """همگام‌سازی همه محصولات فعال"""
-        self.ensure_one()
-        
-        if self.connection_status != 'connected':
-            raise ValidationError('ابتدا اتصال را تست کنید!')
-        
-        products = self.env['product.template'].search([
-            ('sale_ok', '=', True),
-            ('type', 'in', ['product', 'consu'])
-        ], limit=10)
-        
-        if not products:
-            raise ValidationError('محصولی برای همگام‌سازی یافت نشد!')
-        
-        products.write({'woo_sync_enabled': True})
-        
-        success_count = 0
-        error_count = 0
-        errors = []
-        
-        for product in products:
-            try:
-                product.sync_to_woocommerce()
-                success_count += 1
-            except Exception as e:
-                error_count += 1
-                errors.append(f'{product.name}: {str(e)}')
-        
-        message = f'نتیجه همگام‌سازی:\n'
-        message += f'✅ موفق: {success_count} محصول\n'
-        message += f'❌ خطا: {error_count} محصول'
-        
-        if errors:
-            message += '\n\nخطاها:\n' + '\n'.join(errors[:5])
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'همگام‌سازی انجام شد',
-                'message': message,
-                'type': 'success' if error_count == 0 else 'warning',
-                'sticky': True,
-            }
-        }
+   _inherit = 'stock.quant'
+   
+   @api.model
+   def create(self, vals):
+       """همگام‌سازی خودکار موجودی"""
+       quant = super().create(vals)
+       self._sync_product_stock(quant)
+       return quant
+   
+   def write(self, vals):
+       """همگام‌سازی خودکار موجودی"""
+       result = super().write(vals)
+       for quant in self:
+           self._sync_product_stock(quant)
+       return result
+   
+   def _sync_product_stock(self, quant):
+       """همگام‌سازی موجودی با WooCommerce"""
+       if (quant.location_id.usage == 'internal' and 
+           quant.product_id.product_tmpl_id.woo_sync_enabled and
+           quant.product_id.product_tmpl_id.woo_id):
+           
+           config = self.env['woo.config'].search([
+               ('active', '=', True),
+               ('sync_inventory_real_time', '=', True)
+           ], limit=1)
+           
+           if config:
+               try:
+                   quant.product_id.product_tmpl_id._sync_stock_quantity(
+                       quant.product_id.product_tmpl_id.woo_id,
+                       config
+                   )
+               except Exception as e:
+                   _logger.error(f"Auto stock sync failed: {str(e)}")
